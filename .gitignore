@@ -1,9 +1,37 @@
+# Local data, generated experiments and model weights
 data/
+runs/
+results/
+*.pt
+*.pth
+*.onnx
 
-# Byte-compiled / optimized / DLL files
+# Python environments and build outputs
+.venv/
+venv/
 __pycache__/
 *.py[cod]
-*$py.class
-*.pth
-*.png
-viewer*
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local credentials and editor state
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# Academic documents are outside this code repository
+*.docx
+*.doc
+*.pdf
+report*.txt
+doc_qa/

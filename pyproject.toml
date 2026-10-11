@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=78"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nir-xray"
+version = "1.0.0"
+description = "Reproducible DenseNet121 and capsule classification of chest X-rays"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "torch>=2.6,<3",
+  "torchvision>=0.21,<1",
+  "torchxrayvision>=1.3,<2",
+  "numpy>=1.26,<3",
+  "Pillow>=10,<13",
+  "scikit-learn>=1.4,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.9,<1", "build>=1.2,<2"]
+
+[project.scripts]
+nir = "nir.cli:main"
+
+[project.urls]
+Repository = "https://github.com/nico1008/NIR"
+Issues = "https://github.com/nico1008/NIR/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
