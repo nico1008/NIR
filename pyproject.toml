@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "ruff>=0.9,<1", "build>=1.2,<2"]
+test = ["pytest>=8,<9"]
 
 [project.scripts]
 nir = "nir.cli:main"
@@ -33,10 +33,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-
-[tool.ruff]
-target-version = "py312"
-line-length = 100
-
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B", "UP"]

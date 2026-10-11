@@ -1,20 +1,58 @@
-# NIR · DenseNet121 + Capsules
+<div align="center">
 
-[![CI](https://github.com/nico1008/NIR/actions/workflows/ci.yml/badge.svg)](https://github.com/nico1008/NIR/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-DenseNet%20%2B%20Capsules-EE4C2C?logo=pytorch&logoColor=white)
+# NIR
+### Распознавание рентгеновских снимков грудной клетки
 
-A reproducible research implementation for **NORMAL / PNEUMONIA** classification
-of chest X-rays. One architecture, one fixed training protocol, one held-out test
-evaluation. The package combines a chest X-ray pretrained DenseNet121 backbone
-with dynamic routing between capsules.
+DenseNet121 + капсульная нейронная сеть · Python · PyTorch
 
-This repository contains source code, tests and software documentation. Images,
-trained weights, generated experiment artifacts and academic reports stay local.
+[Результаты](#результаты) · [Запуск](#запуск) · [Как это работает](#как-это-работает)
 
-## Quick start
+</div>
 
-Use Python 3.12. Create and activate a virtual environment, then install the package:
+---
+
+Проект обучает модель различать два класса снимков: **NORMAL** и **PNEUMONIA**.
+На вход поступает рентгенограмма, на выходе получается предсказание класса.
+Для папки снимков результаты сохраняются в CSV.
+
+Это готовая основа для экспериментов с медицинскими изображениями: можно
+подготовить данные, обучить модель, измерить качество и обработать новые снимки.
+Код сохраняет состав выборок, лучшие веса и ошибки по каждому изображению,
+чтобы результат можно было проверить и разобрать.
+
+## Результаты
+
+На **873 отложенных снимках** модель правильно классифицировала **839**.
+Получены следующие показатели:
+
+| Показатель | Результат | Что он показывает |
+| :--- | ---: | :--- |
+| Accuracy | **96,11 %** | Доля правильно классифицированных снимков |
+| Чувствительность | **96,70 %** | Доля найденных снимков класса PNEUMONIA |
+| Специфичность | **94,49 %** | Доля правильно распознанных снимков NORMAL |
+| F1 | **0,9731** | Баланс точности положительных предсказаний и полноты |
+| ROC-AUC | **0,9902** | Способность разделять классы при разных порогах |
+| Average precision | **0,9965** | Качество ранжирования по классу PNEUMONIA |
+
+![Матрица ошибок модели на 873 отложенных снимках](assets/results.png)
+
+Модель допустила **13 ложноположительных** и **21 ложноотрицательный** результат.
+Всего использовано 5 824 изображения после исключения 32 точных дубликатов:
+4 078 для обучения, 873 для выбора модели и порога, 873 для итоговой оценки.
+Обучение завершилось после 11 эпох; выбран checkpoint шестой эпохи.
+
+Это результаты одного локального эксперимента. Группы сформированы по именам
+файлов, а не по подтверждённым идентификаторам пациентов. Происхождение локальной
+копии данных и её пересечение с данными предобучения не подтверждены.
+Качество на снимках других учреждений не проверялось; модель не предназначена
+для постановки медицинского диагноза.
+
+## Запуск
+
+Нужен **Python 3.12**. Снимки и обученные веса в репозиторий не входят:
+после установки нужно предоставить данные и обучить модель.
+
+### 1. Установить
 
 ```bash
 git clone https://github.com/nico1008/NIR.git
@@ -22,189 +60,151 @@ cd NIR
 python -m venv .venv
 ```
 
-| Shell | Activate the environment |
-| --- | --- |
-| PowerShell | `.\.venv\Scripts\Activate.ps1` |
-| bash / zsh | `source .venv/bin/activate` |
+Активировать окружение:
+
+| Система | Команда |
+| :--- | :--- |
+| Windows · PowerShell | `.\.venv\Scripts\Activate.ps1` |
+| Linux / macOS | `source .venv/bin/activate` |
 
 ```bash
-python -m pip install --upgrade pip
 python -m pip install -e .
-nir --help
 ```
 
-For an NVIDIA GPU, install the matching PyTorch and torchvision wheels **before**
-installing this package. Choose the wheel index for your driver using the
-[official PyTorch installer](https://pytorch.org/get-started/locally/).
-The original experiment used CUDA 12.8:
+Для NVIDIA GPU установите подходящую версию PyTorch **до установки проекта**.
+В проведённом эксперименте использовалась CUDA 12.8:
 
 ```bash
 python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -e .
 ```
 
-`requirements/experiment-cu128.txt` records the exact original Windows / Python
-3.12 environment. It is an environment snapshot, separate from the compatible
-package dependency ranges. To recreate that environment:
+Другие варианты установки доступны на [сайте PyTorch](https://pytorch.org/get-started/locally/).
+Без CUDA код использует CPU; обучение будет медленнее.
+
+### 2. Подготовить снимки
+
+```text
+data/
+├── NORMAL/
+│   └── IM-0001-0001.jpeg
+└── PNEUMONIA/
+    └── person1_bacteria_1.jpeg
+```
+
+Поддерживаются JPG, JPEG и PNG. Названия папок задают классы.
+Имена снимков должны содержать идентификаторы вида `IM-0001`, `NORMAL2-IM-0001`
+или `person1`: по ним изображения объединяются в группы перед разделением.
+Для файлов с другими именами потребуется адаптировать правило группировки
+в [`data.py`](src/nir/data.py).
+
+Можно использовать вложенные папки. Команда `audit` объединяет все найденные
+снимки и создаёт новое разделение; исходные папки `train` и `test` его не задают.
+
+### 3. Обучить и оценить
+
+```bash
+nir audit --data data --out runs/default
+nir train --out runs/default
+nir evaluate --out runs/default
+```
+
+- `audit` исключает дубликаты и фиксирует выборки примерно 70 / 15 / 15 %.
+- `train` обучает модель и сохраняет лучшие веса.
+- `evaluate` рассчитывает показатели на итоговой выборке.
+
+При первом обучении загружаются предобученные веса TorchXRayVision.
+Модель и порог выбираются по проверочной выборке. Итоговая оценка выполняется
+один раз; повторный запуск и перезапись обученного эксперимента блокируются.
+Для нового эксперимента укажите другую папку в `--out`.
+
+### 4. Обработать новые снимки
+
+```bash
+nir predict --out runs/default --folder images
+```
+
+В `runs/default/folder_predictions.csv` появятся путь к снимку, две оценки
+классов и предсказание: **0 = NORMAL**, **1 = PNEUMONIA**.
+Оценки классов не являются вероятностями заболевания.
+
+## Как это работает
+
+```mermaid
+flowchart LR
+    A[Рентгенограмма] --> B[Подготовка 224 × 224]
+    B --> C[DenseNet121]
+    C --> D[Капсульный классификатор]
+    D --> E[NORMAL / PNEUMONIA]
+```
+
+**DenseNet121** извлекает признаки снимка. Используются веса TorchXRayVision,
+предобученные на рентгенограммах грудной клетки. **Капсульный классификатор**
+связывает признаки через три итерации динамической маршрутизации и формирует
+оценки двух классов.
+
+Первые три эпохи обучается капсульная часть, затем подключается последний блок
+DenseNet. Замороженные слои сохраняют свои параметры и статистику нормализации.
+Используются AdamW и функция потерь с учётом дисбаланса классов.
+Параметры собраны в [`config.py`](src/nir/config.py).
+
+Обработка одинакова при обучении и предсказании: один канал, центральная обрезка
+и размер 224 × 224. Обрезка может исключать периферические участки снимка.
+Преимущество капсул перед другими классификаторами в этом эксперименте не проверялось.
+
+## Что сохраняется
+
+Все результаты остаются в папке, указанной через `--out`.
+
+| Файл | Для чего нужен |
+| :--- | :--- |
+| `best.pt` | Лучшие веса модели |
+| `test_metrics.json` | Показатели качества и матрица ошибок |
+| `test_predictions.csv` | Предсказания на итоговой выборке и отметки ошибок |
+| `folder_predictions.csv` | Результаты обработки новых снимков |
+| `manifest.csv` | Состав выборок, группы и контрольные суммы изображений |
+| `config.json`, `history.json` | Условия и ход обучения |
+| `threshold.json` | Порог классификации, выбранный на проверочной выборке |
+
+## Навигация по коду
+
+| Файл | Содержание |
+| :--- | :--- |
+| [`model.py`](src/nir/model.py) | DenseNet, капсулы и функция потерь |
+| [`data.py`](src/nir/data.py) | Проверка данных, разделение и обработка снимков |
+| [`engine.py`](src/nir/engine.py) | Обучение, оценка и предсказания |
+| [`cli.py`](src/nir/cli.py) | Четыре команды запуска |
+| [`config.py`](src/nir/config.py) | Параметры эксперимента |
+| [`tests/`](tests) | Проверки модели, данных и сохранения результатов |
+
+<details>
+<summary>Проверка кода и точное окружение эксперимента</summary>
+
+```bash
+python -m pip install -e ".[test]"
+pytest
+```
+
+15 тестов проверяют градиенты, замороженные слои, разделение групп,
+обработку изображений, сохранение предсказаний и полный цикл работы
+на синтетических данных. Для тестов не нужны снимки или GPU.
+
+Точные версии библиотек исходного эксперимента сохранены в
+[`requirements/experiment-cu128.txt`](requirements/experiment-cu128.txt).
+Для восстановления окружения Windows / Python 3.12:
 
 ```bash
 python -m pip install -r requirements/experiment-cu128.txt --extra-index-url https://download.pytorch.org/whl/cu128
 python -m pip install -e . --no-deps
 ```
 
-## Run an experiment
+Все команды также доступны через `python -m nir`.
+Параметр `--workers 0` отключает фоновые процессы загрузки данных.
 
-Supply your own labeled images. Class folders may sit below other directories;
-the immediate parent of each image must be `NORMAL` or `PNEUMONIA`.
-Supported extensions are `.jpg`, `.jpeg` and `.png`.
+</details>
 
-```text
-data/
-├── train/
-│   ├── NORMAL/       # e.g. IM-0001-0001.jpeg
-│   └── PNEUMONIA/    # e.g. person1_bacteria_1.jpeg
-└── test/
-    ├── NORMAL/
-    └── PNEUMONIA/
-```
+## Основа проекта
 
-The audit pools the supplied images and creates its own fixed group split;
-existing `train` / `test` folder names do not determine the experimental split.
-Files must follow the grouping patterns shown above. Unrecognized identifiers,
-unreadable images and conflicting duplicate labels cause an explicit failure.
-
-```bash
-nir audit --data data --out runs/default
-nir train --out runs/default
-nir evaluate --out runs/default
-nir predict --out runs/default --folder images
-```
-
-`python -m nir` accepts the same commands. Paths are relative to the current
-working directory. `--workers 0` disables DataLoader subprocesses for debugging;
-the default is four workers. Training downloads TorchXRayVision's pretrained
-weights on first use. Tests and checkpoint restoration do not download weights.
-
-The program refuses to overwrite an existing trained experiment or repeat a
-completed test evaluation. Use a different `--out` directory for an intentionally
-new experiment. Prediction writes `folder_predictions.csv` in the selected run.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[Chest X-ray] --> B[Shared preprocessing]
-    B --> C[DenseNet121 spatial features]
-    C --> D[392 primary capsules · dim 8]
-    D --> E[3 routing iterations]
-    E --> F[2 output capsules · dim 16]
-    F --> G[Difference of capsule lengths]
-    G --> H[Validation-selected threshold]
-```
-
-| Component | Fixed choice |
-| --- | --- |
-| Backbone | TorchXRayVision `densenet121-res224-all` |
-| Input | One channel, 224 × 224, normalized to [−1024, 1024] |
-| Spatial features | 1024 × 7 × 7 |
-| Primary capsules | Eight capsules of dimension eight per spatial position |
-| Vote transforms | Separate trainable transform for each input / output capsule pair |
-| Output | NORMAL and PNEUMONIA capsules, dimension 16 |
-| Routing | Three iterations |
-
-The same preprocessing function serves training, evaluation and prediction:
-RGB channels are averaged after normalization, then centrally cropped to a square
-and resized. No additional image augmentation is applied. Capsule lengths are
-class scores; they are **not calibrated disease probabilities**.
-
-## Experimental protocol
-
-1. Hash decoded grayscale pixels and dimensions; exclude exact duplicates without
-   deleting source files. Reject identical images with conflicting labels.
-2. Infer group proxies from filenames. Keep each group in one split; group
-   `person` numbers across bacteria / virus. Use 20 stratified group folds with
-   seed 42: 14 training, three validation, three test.
-3. Train the capsule head for three epochs. Then fine-tune DenseNet's final block
-   and final normalization layer. Frozen BatchNorm statistics remain unchanged.
-4. Use class-weighted margin loss, AdamW, batch size 32 and mixed precision on
-   CUDA. Learning rates: 0.001 during head warm-up; then 0.0001 for capsules and
-   0.00001 for the backbone. Stop after five epochs without validation AUC
-   improvement, with a maximum of 20 epochs.
-5. Choose the checkpoint by validation ROC-AUC and the decision threshold by
-   Youden's index on that same validation split. Evaluate the held-out test set
-   once after both selections are fixed.
-
-The fixed protocol lives in [`src/nir/config.py`](src/nir/config.py).
-Random seeds and deterministic cuDNN settings support repeatability within a
-matching environment; results may differ across hardware and library versions.
-
-## Local artifacts
-
-| File | Purpose |
-| --- | --- |
-| `manifest.csv` | Paths, labels, group proxies, pixel hashes and fixed split |
-| `audit.json`, `duplicates.json` | Counts, grouping limitations and excluded copies |
-| `config.json`, `history.json` | Runtime versions, settings and epoch history |
-| `best.pt` | Model state, selected epoch, configuration and manifest hash |
-| `threshold.json` | Validation-selected threshold and checkpoint epoch |
-| `val_predictions.csv`, `test_predictions.csv` | Class scores, decisions and error flags |
-| `test_metrics.json` | ROC-AUC, average precision, sensitivity, specificity, F1 and accuracy |
-| `folder_predictions.csv` | Predictions for an input folder |
-
-The confusion matrix uses true classes as rows and predicted classes as columns,
-ordered NORMAL then PNEUMONIA. PR-AUC is reported as **average precision**.
-The manifest hash and checkpoint epoch are checked when restoring a model.
-Existing `practice3_solution/results` checkpoints are compatible with this
-package; pass that directory through `--out` without moving or changing its files.
-Absolute image paths in a manifest must remain valid when using an existing run.
-
-## Development
-
-```bash
-python -m pip install -e '.[dev]'
-ruff check .
-ruff format --check .
-pytest
-python -m build
-```
-
-Tests cover capsule shapes and gradients, the frozen backbone boundary,
-deduplication, group isolation, preprocessing, CSV contracts, checkpoint /
-threshold consistency, overwrite guards and CLI validation. CI runs lint checks
-and CPU tests on Linux and Windows. It also builds the distributable package.
-No dataset, network download or GPU is required for tests.
-
-```text
-.github/workflows/ci.yml          Automated quality and CPU checks
-requirements/experiment-cu128.txt Exact original environment snapshot
-src/nir/
-├── cli.py                       Command-line interface
-├── config.py                    Fixed experimental protocol
-├── data.py                      Audit, splitting, preprocessing and loading
-├── model.py                     DenseNet, capsules and margin loss
-└── engine.py                    Training, selection, evaluation and inference
-tests/                           Behavioral and contract tests
-```
-
-The earlier notebook is retained in Git history. The Python package is the
-maintained implementation.
-
-## Research boundaries
-
-Filename groups are proxies, not verified patient identities. Local data
-provenance and overlap with pretraining datasets are not established by this
-implementation. Central cropping can remove peripheral image regions. A local
-held-out result does not establish performance across institutions or age groups.
-
-The code implements the chosen research architecture. It does not establish
-state-of-the-art predictive performance or an advantage over other classifiers
-without a controlled comparison. Clinical deployment is outside this project's
-validated scope.
-
-## References
-
-- [TorchXRayVision source and model documentation](https://github.com/mlmed/torchxrayvision)
-- [Cohen et al. · TorchXRayVision](https://arxiv.org/abs/2111.00595)
-- [Sabour, Frosst and Hinton · Dynamic Routing Between Capsules](https://papers.nips.cc/paper/2017/hash/2cad8fa47bbef282badbb8de5374b894-Abstract.html)
-
-Dataset and pretrained-weight terms must be checked at their original sources.
+[TorchXRayVision](https://github.com/mlmed/torchxrayvision) ·
+[Описание библиотеки](https://arxiv.org/abs/2111.00595) ·
+[Dynamic Routing Between Capsules](https://papers.nips.cc/paper/2017/hash/2cad8fa47bbef282badbb8de5374b894-Abstract.html)
